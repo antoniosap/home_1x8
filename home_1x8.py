@@ -42,22 +42,22 @@ DISPLAY_STATE_METEO = 2
 DISPLAY_STATE_CO2_LUX = 3
 
 METEO_TEXT = {
-    "clear-night": "NOTTE SERENO",
-    "cloudy": "NUVOLOSO",
-    "exceptional": "ECCEZIONALE",
-    "fog": "NEbbIA",
-    "hail": "GRANDINE",
+    "clear-night": "SERE",
+    "cloudy": "NUVO",
+    "exceptional": "EXCP",
+    "fog": "NEbb",
+    "hail": "GRAN",
     "lightning": "TEMP",
-    "lightning-rainy": "TEMPESTA PIOGGIA",
-    "partlycloudy": "PAR.NUVOLOSO",
-    "pouring": "ROVESCI",
-    "rainy": "PIOGGIA",
+    "lightning-rainy": "TMPP",
+    "partlycloudy": "PNUV",
+    "pouring": "ROVE",
+    "rainy": "PIOG",
     "snowy": "NEVE",
-    "snowy-rainy": "NEVE PIOGGIA",
-    "sunny": "SOLEGGIATO",
-    "windy": "VENTOSO",
-    "windy-variant": "VARIABILE",
-    "unavailable": "NON DISPONIBILE"
+    "snowy-rainy": "NEVP",
+    "sunny": "SOLE",
+    "windy": "VENT",
+    "windy-variant": "PVEN",
+    "unavailable": "-nd-"
 }
 
 
@@ -115,6 +115,8 @@ class Home1x8(hass.Hass):
             if Button4 == 'SINGLE':
                 self.displayState = DISPLAY_STATE_CO2_LUX
                 self.co2LuxDisplay()
+        # if 'IrReceived' in pld.keys() and pld['IrReceived']['Protocol'] == "UNKNOWN" and pld['IrReceived']['Bits'] == 34:
+        #    self.IrReceivedDisplay(pld['IrReceived']['Hash'])
 
     def displayUpdateEMinutely(self, *args, **kwargs):
         weekday = dt.datetime.now().weekday() + 1  # lun == 1
@@ -168,21 +170,28 @@ class Home1x8(hass.Hass):
 
     def co2LuxDisplay(self):
         device_co2 = self.get_entity(CO2_ID)
+        value_co2 = device_co2.get_state()
+        value = ''
+        if value_co2 == 'unavailable':
+            value += f"CO2 {METEO_TEXT['unavailable']}"
+        else:
+            value += f"CO2 {float(device_co2.get_state()):.0f} PPM"
         device_lux = self.get_entity(LUX_ID)
-        value = f"CO2 {float(device_co2.get_state()):.0f} PPM ILL {float(device_lux.get_state()):g} LX"
+        value_lux = device_lux.get_state()
+        if value_lux == 'unavailable':
+            value += f" ILL {METEO_TEXT['unavailable']} LX"
+        else:
+            value += f" ILL {float(device_lux.get_state()):g} LX"
         self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_SCROLL, value)
 
     def powerMeterDisplay(self):
-        value = f"P {float(self.totalW):.0f} W"
+        value = f"P {float(self.totalW):.0f}"
         self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, value)
 
     def meteoDisplay(self):
         device_tc_ext = self.get_entity(TC_EXTERNAL_ID)
-        value = f"{self.meteoText} {float(device_tc_ext.get_state()):.1f}^ {'.HOLD.' if self.meteoHoldOption else ''}"
-        if len(value) > DISPLAY_LEN:
-            self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_SCROLL, value)
-        else:
-            self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, value)
+        value = f"{self.meteoText} {float(device_tc_ext.get_state()):.1f}"
+        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, value)
 
     def powerMeterEvent(self, event_name, data, *args, **kwargs):
         if self.displayState == DISPLAY_STATE_POWER_METER:
@@ -195,3 +204,7 @@ class Home1x8(hass.Hass):
         except KeyError:
             self.meteoText = METEO_TEXT['unavailable']
         self.meteoDisplay()
+
+    def IrReceivedDisplay(self, value):
+        value = value.replace('0x', '')
+        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, value)
