@@ -1,21 +1,28 @@
 #
 # home_1x8 controller 12.2.2023
 # hardware: ESP8266, 4 buttons, 2x LED 8 digits
-# firmware: tasmota 12.3.0
+# firmware: 12.4.0.2(home_display_ir)
 # for productions run inside ha-appdaemon add-on
 #
 # button left   = meteo: single mostra meteo + meteo unhold, double meteo hold
 # button center = power meter: single mostra power, double mostra clock
 # button right  = boiler: single simple toggle on/off
 #
+# ir receiver
+# RULE1 ON IrReceived#DataLSB DO publish stat/tasmota_1DAA95/IR %value% ENDON
+# RULE1 1
+#
 
-TOPIC_HOME_1X8_RESULT = "stat/tasmota_1DAA95/RESULT"
-TOPIC_HOME_1X8_CMND = "cmnd/tasmota_1DAA95/"
-TOPIC_HOME_1X8_CMND_DIMMER = TOPIC_HOME_1X8_CMND + "DisplayDimmer"
-TOPIC_HOME_1X8_CMND_DISPLAY_TEXT = TOPIC_HOME_1X8_CMND + "DisplayText"
-TOPIC_HOME_1X8_CMND_DISPLAY_FLOAT = TOPIC_HOME_1X8_CMND + "DisplayFloat"
-TOPIC_HOME_1X8_CMND_DISPLAY_CLOCK = TOPIC_HOME_1X8_CMND + "DisplayClock"
-TOPIC_HOME_1X8_CMND_DISPLAY_SCROLL = TOPIC_HOME_1X8_CMND + "DisplayScrollText"
+TOPIC_TASMOTA_ID = "1DAA95"
+TOPIC_HOME_BOX_RESULT = f"stat/tasmota_{TOPIC_TASMOTA_ID}/RESULT"
+TOPIC_HOME_BOX_IR = f"stat/tasmota_{TOPIC_TASMOTA_ID}/IR"
+TOPIC_HOME_BOX_CMND = f"cmnd/tasmota_{TOPIC_TASMOTA_ID}/"
+TOPIC_HOME_BOX_CMND_WIDTH = TOPIC_HOME_BOX_CMND + "DisplayWidth"
+TOPIC_HOME_BOX_CMND_DIMMER = TOPIC_HOME_BOX_CMND + "DisplayDimmer"
+TOPIC_HOME_BOX_CMND_DISPLAY_TEXT = TOPIC_HOME_BOX_CMND + "DisplayText"
+TOPIC_HOME_BOX_CMND_DISPLAY_FLOAT = TOPIC_HOME_BOX_CMND + "DisplayFloat"
+TOPIC_HOME_BOX_CMND_DISPLAY_CLOCK = TOPIC_HOME_BOX_CMND + "DisplayClock"
+TOPIC_HOME_BOX_CMND_DISPLAY_SCROLL = TOPIC_HOME_BOX_CMND + "DisplayScrollText"
 
 DISPLAY_LEN = 8
 POWER_METER_EVENT = "sensor.total_watt"
@@ -60,6 +67,42 @@ METEO_TEXT = {
     "unavailable": "-nd-"
 }
 
+IR_REMOTE_MELICONI_SAMSUNG = {
+    "0X70704FB": "1",
+    "0X70705FA": "2",
+    "0X70706F9": "3",
+    "0X70708F7": "4",
+    "0X70709F6": "5",
+    "0X7070AF5": "6",
+    "0X7070CF3": "7",
+    "0X7070DF2": "8",
+    "0X7070EF1": "9",
+    "0X70711EE": "0",
+    "0X7071FE0": "I",
+    "0X70701FE": "CH_IN",
+    "0X7076C93": "rosso",
+    "0X70714EB": "verde",
+    "0X70715EA": "GIALLO",
+    "0X70716E9": "BLU",
+    "0X70702FD": "ON_OFF",
+    "0X7070BF4": "VOL -",
+    "0X70707F8": "VOL +",
+    "0X70710EF": "Prog -",
+    "0X70712ED": "Prog +",
+    "0X7071AE5": "menu",
+    "0X7070FF0": "mute",
+    "0X707F30C": "app",
+    "0X7077986": "home",
+    "0X7074FB0": "GUIDE",
+    "0X707609F": "up",
+    "0X707659A": "left",
+    "0X707629D": "right",
+    "0X707619E": "down",
+    "0X7076897": "OK",
+    "0X70758A7": "BACK",
+    "0X7072DD2": "EXIT"
+}
+
 
 class Home1x8(hass.Hass):
     mqtt = None
@@ -72,8 +115,11 @@ class Home1x8(hass.Hass):
     def initialize(self):
         # mqtt buttons
         self.mqtt = self.get_plugin_api("MQTT")
-        self.mqtt.mqtt_subscribe(topic=TOPIC_HOME_1X8_RESULT)
-        self.mqtt.listen_event(self.mqttEvent, "MQTT_MESSAGE", topic=TOPIC_HOME_1X8_RESULT, namespace='mqtt')
+        self.mqtt.mqtt_subscribe(topic=TOPIC_HOME_BOX_RESULT)
+        self.mqtt.listen_event(self.mqttEvent, "MQTT_MESSAGE", topic=TOPIC_HOME_BOX_RESULT, namespace='mqtt')
+        # IR service
+        self.mqtt.mqtt_subscribe(topic=TOPIC_HOME_BOX_IR)
+        self.mqtt.listen_event(self.mqttEventIR, "MQTT_MESSAGE", topic=TOPIC_HOME_BOX_IR, namespace='mqtt')
         # LED display service
         self.run_minutely(self.displayUpdateEMinutely, dt.time(0, 0, 0))
         # power meter events
@@ -115,8 +161,10 @@ class Home1x8(hass.Hass):
             if Button4 == 'SINGLE':
                 self.displayState = DISPLAY_STATE_CO2_LUX
                 self.co2LuxDisplay()
-        # if 'IrReceived' in pld.keys() and pld['IrReceived']['Protocol'] == "UNKNOWN" and pld['IrReceived']['Bits'] == 34:
-        #    self.IrReceivedDisplay(pld['IrReceived']['Hash'])
+
+    def mqttEventIR(self, event_name, data, *args, **kwargs):
+        ir_code = IR_REMOTE_MELICONI_SAMSUNG[data['payload']]
+        self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, ir_code)
 
     def displayUpdateEMinutely(self, *args, **kwargs):
         weekday = dt.datetime.now().weekday() + 1  # lun == 1
@@ -124,11 +172,11 @@ class Home1x8(hass.Hass):
         if self.now_is_between("22:00:00", "08:00:00"):
             if not self.insideDimmerRange:
                 self.insideDimmerRange = True
-                self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DIMMER, 20)
+                self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DIMMER, 20)
         else:
             if self.insideDimmerRange:
                 self.insideDimmerRange = False
-                self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DIMMER, 100)
+                self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DIMMER, 100)
         # default state
         self.displayState = DISPLAY_STATE_CLOCK
         if self.meteoHoldOption:
@@ -147,7 +195,7 @@ class Home1x8(hass.Hass):
         # timed actions
         #
         if self.displayState == DISPLAY_STATE_CLOCK:
-            self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_CLOCK, 2)
+            self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_CLOCK, 2)
         elif self.displayState == DISPLAY_STATE_POWER_METER:
             pass
         elif self.displayState == DISPLAY_STATE_METEO:
@@ -159,14 +207,14 @@ class Home1x8(hass.Hass):
 
     def boilerOn(self):
         self.call_service("switch/turn_on", entity_id=ENTITY_SWITCH_BOILER)
-        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, "BOIL ON")
+        self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, "BOIL ON")
 
     def boilerOff(self):
         self.call_service("switch/turn_off", entity_id=ENTITY_SWITCH_BOILER)
-        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, "BOIL OFF")
+        self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, "BOIL OFF")
 
     def clockDisplay(self):
-        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_CLOCK, 2)
+        self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_CLOCK, 2)
 
     def co2LuxDisplay(self):
         device_co2 = self.get_entity(CO2_ID)
@@ -182,16 +230,20 @@ class Home1x8(hass.Hass):
             value += f" ILL {METEO_TEXT['unavailable']} LX"
         else:
             value += f" ILL {float(device_lux.get_state()):g} LX"
-        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_SCROLL, value)
+        self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_SCROLL, value)
 
     def powerMeterDisplay(self):
         value = f"P {float(self.totalW):.0f}"
-        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, value)
+        self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, value)
 
     def meteoDisplay(self):
         device_tc_ext = self.get_entity(TC_EXTERNAL_ID)
-        value = f"{self.meteoText} {float(device_tc_ext.get_state()):.1f}"
-        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, value)
+        value_tc_ext = device_tc_ext.get_state()
+        if value_tc_ext == 'unavailable':
+            value = f"{self.meteoText}{METEO_TEXT['unavailable']}"
+        else:
+            value = f"{self.meteoText} {float(device_tc_ext.get_state()):.1f}"
+        self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, value)
 
     def powerMeterEvent(self, event_name, data, *args, **kwargs):
         if self.displayState == DISPLAY_STATE_POWER_METER:
@@ -204,7 +256,3 @@ class Home1x8(hass.Hass):
         except KeyError:
             self.meteoText = METEO_TEXT['unavailable']
         self.meteoDisplay()
-
-    def IrReceivedDisplay(self, value):
-        value = value.replace('0x', '')
-        self.mqtt.mqtt_publish(TOPIC_HOME_1X8_CMND_DISPLAY_TEXT, value)

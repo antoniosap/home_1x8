@@ -1,7 +1,7 @@
 #
 # ir receiver test for 4 digits 8 segments display
 # RULE1 ON IrReceived#DataLSB DO publish stat/tasmota_1DAA95/IR %value% ENDON
-# RULE 1
+# RULE1 1
 #
 import time
 from string import printable
