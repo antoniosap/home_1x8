@@ -140,6 +140,7 @@ class Home1x8(hass.Hass):
         if 'Button2' in pld.keys():
             Button2 = pld['Button2']['Action']
             if Button2 == 'SINGLE':
+                self.meteoHoldOption = False
                 self.displayState = DISPLAY_STATE_POWER_METER
                 self.powerMeterDisplay()
             elif Button2 == 'DOUBLE':
@@ -184,11 +185,10 @@ class Home1x8(hass.Hass):
             self.meteoDisplay()
         else:
             # power meter time range
-            if ((self.now_is_between("18:00:00", "22:00:00") or
-                 self.now_is_between("05:00:00", "07:00:00")) and
+            if ((self.now_is_between("05:00:00", "23:00:00")) and
                     weekday in [1, 2, 3, 4, 5]):
                 self.displayState = DISPLAY_STATE_POWER_METER
-            if ((self.now_is_between("05:00:00", "23:00:00")) and
+            if ((self.now_is_between("08:00:00", "20:00:00")) and
                     weekday in [6, 7]):
                 self.displayState = DISPLAY_STATE_POWER_METER
         #
@@ -197,7 +197,7 @@ class Home1x8(hass.Hass):
         if self.displayState == DISPLAY_STATE_CLOCK:
             self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_CLOCK, 2)
         elif self.displayState == DISPLAY_STATE_POWER_METER:
-            pass
+            self.powerMeterDisplay()
         elif self.displayState == DISPLAY_STATE_METEO:
             pass
         elif self.displayState == DISPLAY_STATE_CO2_LUX:
@@ -233,7 +233,7 @@ class Home1x8(hass.Hass):
         self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_SCROLL, value)
 
     def powerMeterDisplay(self):
-        value = f"P {float(self.totalW):.0f}"
+        value = f"P {float(self.totalW):.0f} _"
         self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, value)
 
     def meteoDisplay(self):
