@@ -246,8 +246,8 @@ class Home1x8(hass.Hass):
         self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, value)
 
     def powerMeterEvent(self, event_name, data, *args, **kwargs):
+        self.totalW = data['new_state']['state']
         if self.displayState == DISPLAY_STATE_POWER_METER:
-            self.totalW = data['new_state']['state']
             self.powerMeterDisplay()
 
     def meteoEvent(self, event_name, data, *args, **kwargs):
