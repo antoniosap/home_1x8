@@ -166,6 +166,33 @@ class Home1x8(hass.Hass):
     def mqttEventIR(self, event_name, data, *args, **kwargs):
         ir_code = IR_REMOTE_MELICONI_SAMSUNG[data['payload']]
         self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, ir_code)
+        if ir_code == '7':
+            # vent on
+            self.turn_on("switch.tasmota_5")
+        elif ir_code == '8':
+            # vent off
+            self.turn_off("switch.tasmota_5")
+        elif ir_code == '9':
+            # voice repeat last message
+            self.turn_on("media_player.mopidy")
+        elif ir_code == 'rosso':
+            # all lights on, @ eWeLink WB02
+            self.turn_on("switch.tasmota_3")
+            self.turn_on("switch.th10_1")
+            self.turn_on("switch.tasmota_7")
+            self.turn_on("switch.tasmota_8")
+        elif ir_code == 'verde':
+            # all lights off, @ eWeLink WB02
+            self.turn_off("switch.tasmota_3")
+            self.turn_off("switch.th10_1")
+            self.turn_off("switch.tasmota_7")
+            self.turn_off("switch.tasmota_8")
+        elif ir_code == 'GIALLO':
+            # boiler on, timed
+            self.boilerOn()
+        elif ir_code == 'BLU':
+            # boiler off
+            self.boilerOff()
 
     def displayUpdateEMinutely(self, *args, **kwargs):
         weekday = dt.datetime.now().weekday() + 1  # lun == 1
@@ -185,10 +212,10 @@ class Home1x8(hass.Hass):
             self.meteoDisplay()
         else:
             # power meter time range
-            if ((self.now_is_between("05:00:00", "23:00:00")) and
+            if ((self.now_is_between("04:00:00", "23:59:00")) and
                     weekday in [1, 2, 3, 4, 5]):
                 self.displayState = DISPLAY_STATE_POWER_METER
-            if ((self.now_is_between("08:00:00", "20:00:00")) and
+            if ((self.now_is_between("08:00:00", "23:59:00")) and
                     weekday in [6, 7]):
                 self.displayState = DISPLAY_STATE_POWER_METER
         #
