@@ -26,7 +26,8 @@ TOPIC_HOME_BOX_CMND_DISPLAY_SCROLL = TOPIC_HOME_BOX_CMND + "DisplayScrollText"
 
 DISPLAY_LEN = 8
 POWER_METER_EVENT = "sensor.total_watt"
-TC_EXTERNAL_ID = "sensor.ewelink_th01_b0071325_temperature"
+# TC_EXTERNAL_ID = "sensor.ewelink_th01_b0071325_temperature"   guasto 4.9.2023
+TC_EXTERNAL_ID = "sensor.sonoff_th_am2301_temperature"
 METEO_EVENT = "weather.casatorino2022"
 METEO_STATE = METEO_EVENT
 BOILER_STATE = "switch.boiler"
