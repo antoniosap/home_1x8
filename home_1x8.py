@@ -270,7 +270,8 @@ class Home1x8(hass.Hass):
         if value_tc_ext == 'unavailable':
             value = f"{self.meteoText}{METEO_TEXT['unavailable']}"
         else:
-            value = f"{self.meteoText} {float(device_tc_ext.get_state()):.1f}"
+            # https://docs.python.org/3/library/string.html
+            value = f"{self.meteoText} {float(device_tc_ext.get_state()):>4.1f}"
         self.mqtt.mqtt_publish(TOPIC_HOME_BOX_CMND_DISPLAY_TEXT, value)
 
     def powerMeterEvent(self, event_name, data, *args, **kwargs):
