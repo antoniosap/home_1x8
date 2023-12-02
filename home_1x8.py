@@ -26,8 +26,9 @@ TOPIC_HOME_BOX_CMND_DISPLAY_SCROLL = TOPIC_HOME_BOX_CMND + "DisplayScrollText"
 
 DISPLAY_LEN = 8
 POWER_METER_EVENT = "sensor.total_watt"
-# TC_EXTERNAL_ID = "sensor.ewelink_th01_b0071325_temperature"   guasto 4.9.2023
-TC_EXTERNAL_ID = "sensor.sonoff_th_am2301_temperature"
+# TC_EXTERNAL_ID = "sensor.ewelink_th01_b0071325_temperature"  # guasto 4.9.2023
+# TC_EXTERNAL_ID = "sensor.sonoff_th_am2301_temperature"       # dal 2.12.2023 è il sensore bagno
+TC_EXTERNAL_ID = "sensor.sht41_sn2_sht4x_temperature"          # nuovo sensore di precisione per esterno
 METEO_EVENT = "weather.casatorino2022"
 METEO_STATE = METEO_EVENT
 BOILER_STATE = "switch.boiler"
